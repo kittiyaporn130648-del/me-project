@@ -1,17 +1,12 @@
-async function start() {
-  let name = document.getElementById("name").value;
+let answer = Math.floor(Math.random() * 100) + 1;
+let attempts = 0;
 
-  await fetch("/start", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ name })
-  });
-
+function start() {
   document.getElementById("login").style.display = "none";
   document.getElementById("game").style.display = "block";
 }
 
-async function guess() {
+function guess() {
   let value = document.getElementById("guess").value;
 
   if (!value) {
@@ -19,38 +14,30 @@ async function guess() {
     return;
   }
 
-  let res = await fetch("/guess", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ guess: parseInt(value) })
-  });
+  let num = parseInt(value);
+  attempts++;
 
-  if (!res.ok) {
-    alert("server error");
-    return;
+  let result = "";
+  let hint = "";
+
+  if (num < answer) {
+    result = "ต่ำไป";
+  } else if (num > answer) {
+    result = "สูงไป";
+  } else {
+    result = "ถูกต้อง 🎉";
   }
 
-  let data = await res.json();
+  let diff = Math.abs(num - answer);
+  if (diff <= 5) hint = "🔥 ใกล้มาก!";
+  else if (diff <= 15) hint = "🙂 ใกล้แล้ว";
+  else hint = "❄️ ไกลอยู่";
 
-  document.getElementById("result").innerText = data.result;
+  document.getElementById("result").innerText = result;
   document.getElementById("hint").innerText =
-    data.hint + " | ครั้งที่: " + data.attempts;
-  if (data.result === "correct") {
-  loadBoard();
+    hint + " | ครั้งที่: " + attempts;
+
+  if (result === "ถูกต้อง 🎉") {
+    alert("ชนะแล้ว! ใช้ไป " + attempts + " ครั้ง");
+  }
 }
-
-
-async function loadBoard() {
-  let res = await fetch("/leaderboard");
-  let data = await res.json();
-
-  let board = document.getElementById("board");
-  board.innerHTML = "";
-
-  data.forEach(p => {
-    let li = document.createElement("li");
-  li.innerText = `${p.name} - ${p.attempts} ครั้ง`;
-    board.appendChild(li);
-  });
-}
-window.onload = loadBoard;
