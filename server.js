@@ -1,180 +1,88 @@
-// Number Guessing Game Cloud Server
-// Node.js + Express + SQLite3
-
-const express = require('express');
-const Database = require('better-sqlite3');
-const path = require('path');
+const express = require("express");
+const bodyParser = require("body-parser");
+const db = require("./db");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(bodyParser.json());
+app.use(express.static("public"));
 
-// middleware
-app.use(express.json());
-app.use(express.static('public'));
+let game = {
+  number: Math.floor(Math.random() * 100) + 1,
+  attempts: 0,
+  startTime: null,
+  userId: null
+};
 
-// ================= DATABASE =================
-const db = new Database(path.join(__dirname, 'game.db'));
+// เริ่มเกม
+app.post("/start", (req, res) => {
+  const { name } = req.body;
 
-// create tables
-db.prepare(`
-CREATE TABLE IF NOT EXISTS players (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT UNIQUE NOT NULL,
-  wins INTEGER DEFAULT 0,
-  total_attempts INTEGER DEFAULT 0,
-  best_attempts INTEGER
-)
-`).run();
+  db.run("INSERT INTO users (name) VALUES (?)", [name], function () {
+    game = {
+      number: Math.floor(Math.random() * 100) + 1,
+      attempts: 0,
+      startTime: Date.now(),
+      userId: this.lastID
+    };
 
-db.prepare(`
-CREATE TABLE IF NOT EXISTS games (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  player_name TEXT,
-  secret_number INTEGER,
-  guesses TEXT,
-  attempts INTEGER,
-  result TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-`).run();
-
-db.prepare(`
-CREATE TABLE IF NOT EXISTS game_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id TEXT UNIQUE,
-  secret_number INTEGER,
-  players TEXT,
-  winner TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-`).run();
-
-// ================= GAME MEMORY =================
-const activeSessions = {};
-
-function generateSessionId() {
-  return 'session_' + Date.now();
-}
-
-// ================= ROUTES =================
-
-// health check
-app.get('/', (req, res) => {
-  res.send('✅ Server is running');
-});
-
-// create game
-app.post('/api/new-game', (req, res) => {
-  const sessionId = generateSessionId();
-  const secretNumber = Math.floor(Math.random() * 100) + 1;
-
-  activeSessions[sessionId] = {
-    secret_number: secretNumber,
-    players: {},
-    winner: null
-  };
-
-  db.prepare(`
-    INSERT INTO game_sessions (session_id, secret_number, players)
-    VALUES (?, ?, ?)
-  `).run(sessionId, secretNumber, JSON.stringify({}));
-
-  res.json({
-    success: true,
-    session_id: sessionId
+    res.json({ message: "game started" });
   });
 });
 
-// guess
-app.post('/api/guess', (req, res) => {
-  const { sessionId, playerName, guess } = req.body;
+// ทายเลข
+app.post("/guess", (req, res) => {
+  const { guess } = req.body;
+  game.attempts++;
 
-  if (!sessionId || !playerName || guess === undefined) {
-    return res.status(400).json({ error: 'ข้อมูลไม่ครบ' });
-  }
+  let result = "";
+  let hint = "";
 
-  const session = activeSessions[sessionId];
-  if (!session) {
-    return res.status(404).json({ error: 'ไม่พบเกม' });
-  }
-
-  if (session.winner) {
-    return res.json({ message: 'เกมจบแล้ว', winner: session.winner });
-  }
-
-  const guessNum = parseInt(guess);
-
-  if (!session.players[playerName]) {
-    session.players[playerName] = { guesses: [], attempts: 0 };
-  }
-
-  const player = session.players[playerName];
-  player.guesses.push(guessNum);
-  player.attempts++;
-
-  const secret = session.secret_number;
-
-  let result;
-
-  if (guessNum === secret) {
-    result = 'WIN';
-    session.winner = playerName;
-
-    updatePlayerStats(playerName, player.attempts);
-  } else if (guessNum > secret) {
-    result = 'HIGH';
+  if (guess < game.number) {
+    result = "low";
+  } else if (guess > game.number) {
+    result = "high";
   } else {
-    result = 'LOW';
+    result = "correct";
   }
 
-  db.prepare(`
-    INSERT INTO games (player_name, secret_number, guesses, attempts, result)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(playerName, secret, JSON.stringify(player.guesses), player.attempts, result);
+  // hint
+  let diff = Math.abs(guess - game.number);
+  if (diff <= 5) hint = "🔥 ใกล้มาก!";
+  else if (diff <= 15) hint = "🙂 ใกล้แล้ว";
+  else hint = "❄️ ไกลอยู่";
 
-  res.json({
-    result,
-    attempts: player.attempts,
-    winner: session.winner || null
-  });
+  // save history
+  db.run("INSERT INTO game_history (user_id, guess, result) VALUES (?, ?, ?)",
+    [game.userId, guess, result]);
+
+  // ชนะ
+  if (result === "correct") {
+    let timeUsed = Math.floor((Date.now() - game.startTime) / 1000);
+
+    db.run(
+      "INSERT INTO scores (user_id, attempts, time_used) VALUES (?, ?, ?)",
+      [game.userId, game.attempts, timeUsed]
+    );
+  }
+
+  res.json({ result, hint, attempts: game.attempts });
 });
 
 // leaderboard
-app.get('/api/leaderboard', (req, res) => {
-  const rows = db.prepare(`
-    SELECT * FROM players
-    ORDER BY wins DESC, best_attempts ASC
+app.get("/leaderboard", (req, res) => {
+  db.all(`
+    SELECT users.name, scores.attempts, scores.time_used
+    FROM scores
+    JOIN users ON users.id = scores.user_id
+    ORDER BY attempts ASC
     LIMIT 10
-  `).all();
-
-  res.json(rows);
+  `, (err, rows) => {
+    res.json(rows);
+  });
 });
 
-// ================= HELPER =================
-function updatePlayerStats(name, attempts) {
-  const player = db.prepare('SELECT * FROM players WHERE name=?').get(name);
+const PORT = process.env.PORT || 5000;
 
-  if (!player) {
-    db.prepare(`
-      INSERT INTO players (name, wins, total_attempts, best_attempts)
-      VALUES (?, ?, ?, ?)
-    `).run(name, 1, attempts, attempts);
-  } else {
-    const best = player.best_attempts
-      ? Math.min(player.best_attempts, attempts)
-      : attempts;
-
-    db.prepare(`
-      UPDATE players
-      SET wins = wins + 1,
-          total_attempts = total_attempts + ?,
-          best_attempts = ?
-      WHERE name = ?
-    `).run(attempts, best, name);
-  }
-}
-
-// ================= START =================
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log("Server running on port " + PORT);
 });

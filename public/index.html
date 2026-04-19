@@ -1,53 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Guess Game</title>
+  <title>Smart Guess Game</title>
 </head>
-<body style="text-align:center; font-family:Arial;">
+<body>
 
-<h1>🎮 เกมทายเลข 1-100</h1>
+<h1>🎮 Smart Guessing Game</h1>
 
-<input id="name" placeholder="ชื่อผู้เล่น"><br><br>
+<div id="login">
+  <input id="name" placeholder="ชื่อคุณ">
+  <button onclick="start()">เริ่มเกม</button>
+</div>
 
-<button onclick="start()">เริ่มเกม</button>
+<div id="game" style="display:none;">
+  <input id="guess" type="number">
+  <button onclick="guess()">ทาย</button>
+  <p id="result"></p>
+  <p id="hint"></p>
+</div>
 
-<p id="session"></p>
+<h2>🏆 Leaderboard</h2>
+<ul id="board"></ul>
 
-<input id="guess" type="number" placeholder="ใส่เลข"><br><br>
-<button onclick="guess()">ทาย</button>
-
-<h2 id="result"></h2>
-
-<script>
-let sessionId = "";
-
-async function start() {
-  const res = await fetch('/api/new-game', { method: 'POST' });
-  const data = await res.json();
-
-  sessionId = data.session_id;
-  document.getElementById("session").innerText = "Session: " + sessionId;
-}
-
-async function guess() {
-  const name = document.getElementById("name").value;
-  const g = document.getElementById("guess").value;
-
-  const res = await fetch('/api/guess', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: sessionId,
-      playerName: name,
-      guess: g
-    })
-  });
-
-  const data = await res.json();
-  document.getElementById("result").innerText = data.message;
-}
-</script>
-
+<script src="script.js"></script>
 </body>
 </html>
