@@ -14,21 +14,31 @@ async function start() {
 async function guess() {
   let value = document.getElementById("guess").value;
 
+  if (!value) {
+    alert("กรุณาใส่ตัวเลข");
+    return;
+  }
+
   let res = await fetch("/guess", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ guess: parseInt(value) })
   });
 
+  if (!res.ok) {
+    alert("server error");
+    return;
+  }
+
   let data = await res.json();
 
   document.getElementById("result").innerText = data.result;
-  document.getElementById("hint").innerText = data.hint;
-
+  document.getElementById("hint").innerText =
+    data.hint + " | ครั้งที่: " + data.attempts;
   if (data.result === "correct") {
-    loadBoard();
-  }
+  loadBoard();
 }
+
 
 async function loadBoard() {
   let res = await fetch("/leaderboard");
@@ -43,3 +53,4 @@ async function loadBoard() {
     board.appendChild(li);
   });
 }
+window.onload = loadBoard;
