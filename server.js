@@ -31,6 +31,10 @@ app.post("/start", (req, res) => {
 
 // ทายเลข
 app.post("/guess", (req, res) => {
+  if (!game.userId) {
+    return res.status(400).json({ error: "start game first" });
+  }
+
   const { guess } = req.body;
   game.attempts++;
 
