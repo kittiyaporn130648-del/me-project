@@ -1,133 +1,53 @@
 <!DOCTYPE html>
-<html lang="th">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🎮 เกมทายเลขผ่าน Cloud</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Guess Game</title>
 </head>
-<body>
-  <div class="container">
-    <!-- Setup Screen -->
-    <div id="setup-screen" class="screen active">
-      <header>
-        <h1>🎮 เกมทายเลขผ่าน Cloud</h1>
-        <p>ทายเลข 1-100 พร้อมเพื่อนผ่านเว็บ</p>
-      </header>
+<body style="text-align:center; font-family:Arial;">
 
-      <section class="card setup-card">
-        <div class="setup-content">
-          <div class="input-group">
-            <label>👤 ชื่อของคุณ</label>
-            <input id="player-name" type="text" placeholder="ใส่ชื่อของคุณ" />
-          </div>
-          <button id="start-btn" class="btn btn-primary">🚀 เริ่มเกม</button>
-        </div>
-      </section>
+<h1>🎮 เกมทายเลข 1-100</h1>
 
-      <section class="card info-card">
-        <h3>📋 วิธีเล่น</h3>
-        <ol>
-          <li>ใส่ชื่อของคุณ</li>
-          <li>ทาย เลข 1 - 100</li>
-          <li>ระบบจะบอกสูงเกินไป หรือ ต่ำเกินไป</li>
-          <li>ทายจนกว่าถูก</li>
-          <li>คนที่ทายถูกเป็นผู้ชนะ</li>
-        </ol>
-      </section>
+<input id="name" placeholder="ชื่อผู้เล่น"><br><br>
 
-      <footer>Created by Thitipon Muk</footer>
-    </div>
+<button onclick="start()">เริ่มเกม</button>
 
-    <!-- Game Screen -->
-    <div id="game-screen" class="screen">
-      <header>
-        <h1>🎮 เกมทายเลขผ่าน Cloud</h1>
-        <div id="player-info">
-          <span id="current-player-name">Player</span>
-          <span id="attempt-counter">ครั้งที่ 1</span>
-        </div>
-      </header>
+<p id="session"></p>
 
-      <!-- Active Players -->
-      <section class="card players-card">
-        <h3>👥 ผู้เล่นในเกม</h3>
-        <div id="active-players" class="players-list"></div>
-      </section>
+<input id="guess" type="number" placeholder="ใส่เลข"><br><br>
+<button onclick="guess()">ทาย</button>
 
-      <!-- Game Card -->
-      <section class="card game-card">
-        <h2>🎯 ทายเลข</h2>
-        <form id="guess-form">
-          <div class="input-group">
-            <label>ใส่เลข (1 - 100)</label>
-            <input
-              id="player-guess"
-              type="number"
-              min="1"
-              max="100"
-              placeholder="ลองทาย..."
-              autocomplete="off"
-            />
-          </div>
-          <button type="submit" class="btn btn-primary">ทายเลข</button>
-        </form>
+<h2 id="result"></h2>
 
-        <!-- Result Box -->
-        <div id="result-box" class="result-box hidden">
-          <div id="result-message" class="result-message"></div>
-          <div id="guesses-display" class="guesses-display"></div>
-        </div>
+<script>
+let sessionId = "";
 
-        <!-- Winner Announcement -->
-        <div id="winner-box" class="winner-box hidden">
-          <h3 id="winner-message"></h3>
-          <button id="new-game-btn" class="btn btn-success">🔄 เล่นต่อ</button>
-          <button id="back-btn" class="btn btn-secondary">← กลับ</button>
-        </div>
-      </section>
+async function start() {
+  const res = await fetch('/api/new-game', { method: 'POST' });
+  const data = await res.json();
 
-      <!-- Status -->
-      <div id="status-box" class="status-message"></div>
-    </div>
+  sessionId = data.session_id;
+  document.getElementById("session").innerText = "Session: " + sessionId;
+}
 
-    <!-- Results Screen -->
-    <div id="results-screen" class="screen">
-      <header>
-        <h1>🏆 Leaderboard</h1>
-        <p>อันดับชิงแชมป์ทายเลข</p>
-      </header>
+async function guess() {
+  const name = document.getElementById("name").value;
+  const g = document.getElementById("guess").value;
 
-      <section class="card leaderboard-card">
-        <h2>🥇 Top 10 ผู้ชนะ</h2>
-        <table id="leaderboard-table" class="leaderboard-table">
-          <thead>
-            <tr>
-              <th>📊 อันดับ</th>
-              <th>👤 ชื่อ</th>
-              <th>🏆 ชนะ</th>
-              <th>🎯 พยายามดีที่สุด</th>
-              <th>📈 รวมพยายาม</th>
-            </tr>
-          </thead>
-          <tbody id="leaderboard-body">
-            <tr>
-              <td colspan="5">กำลังโหลด...</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+  const res = await fetch('/api/guess', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: sessionId,
+      playerName: name,
+      guess: g
+    })
+  });
 
-      <section class="card history-card">
-        <h2>📜 ประวัติการเล่นล่าสุด</h2>
-        <ul id="history-list" class="history-list"></ul>
-      </section>
+  const data = await res.json();
+  document.getElementById("result").innerText = data.message;
+}
+</script>
 
-      <button id="play-again-btn" class="btn btn-primary">🎮 เล่นอีก</button>
-      <footer>Created by Thitipon Muk</footer>
-    </div>
-  </div>
-
-  <script src="script.js"></script>
 </body>
 </html>
