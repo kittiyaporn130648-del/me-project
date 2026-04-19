@@ -60,14 +60,16 @@ app.post("/guess", (req, res) => {
     [game.userId, guess, result]);
 
   // ชนะ
-  if (result === "correct") {
-    let timeUsed = Math.floor((Date.now() - game.startTime) / 1000);
 
-    db.run(
-      "INSERT INTO scores (user_id, attempts, time_used) VALUES (?, ?, ?)",
-      [game.userId, game.attempts, timeUsed]
-    );
-  }
+if (result === "correct") {
+
+  let timeUsed = Math.floor((Date.now() - game.startTime) / 1000);
+
+  db.run(
+    "INSERT INTO scores (user_id, attempts, time_used) VALUES (?, ?, ?)",
+    [game.userId, game.attempts, timeUsed]
+  );
+}
 
   res.json({ result, hint, attempts: game.attempts });
 });
